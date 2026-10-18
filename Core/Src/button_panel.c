@@ -57,6 +57,7 @@ static btn_debounce_t db_s4;
 static uint32_t last_button_scan_ms;
 static uint32_t last_led2_toggle_ms;
 static uint32_t led1_off_until_ms;    /* LED1 restore timestamp (active-low)  */
+static uint32_t drive_mode_hold_until_ms; /* Rotary muted until this tick     */
 
 /* External references (can.c globals) */
 extern CAN_HandleTypeDef hcan;
@@ -68,7 +69,7 @@ extern ADC_HandleTypeDef    hadc1;
 /* ========================================================================= */
 static void      ADC_Read_And_Filter(void);
 static void      Scan_Buttons(void);
-static void      Update_Drive_Mode(void);
+static void      Update_Drive_Mode(uint32_t now);
 static void      Send_CAN_SlipLevel(void);
 static void      Send_CAN_RecorderToggle(void);
 static void      Send_CAN_ErrorClear(void);
@@ -115,6 +116,7 @@ void ButtonPanel_Init(void)
     last_button_scan_ms = HAL_GetTick();
     last_led2_toggle_ms = HAL_GetTick();
     led1_off_until_ms   = 0U;
+    drive_mode_hold_until_ms = 0U;
 
     /* LEDs off (active-low: high = off) */
     HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
@@ -126,7 +128,7 @@ void ButtonPanel_Init(void)
     }
 
     /* Immediately read initial drive mode */
-    Update_Drive_Mode();
+    Update_Drive_Mode(HAL_GetTick());
 }
 
 /**
@@ -154,7 +156,7 @@ void ButtonPanel_Process(void)
     if ((now - last_button_scan_ms) >= BUTTON_SCAN_PERIOD_MS) {
         last_button_scan_ms = now;
         Scan_Buttons();        /* rising-edge → recorder/error-clear TX */
-        Update_Drive_Mode();
+        Update_Drive_Mode(now);
         ADC_Read_And_Filter();
 
         /* ---- Slip level change detection → 0x700 ---- */
@@ -169,6 +171,9 @@ void ButtonPanel_Process(void)
             last_sent_drive_mode = drive_mode;
             Send_CAN_DriveMode();
             Flash_LED1();
+            /* Mute the rotary input until the knob contacts settle; bounce
+               must not retrigger 0x310 and flap the reported mode. */
+            drive_mode_hold_until_ms = now + DRIVE_MODE_HOLD_MS;
         }
     }
 }
@@ -266,9 +271,15 @@ static uint8_t Debounce_Sample(GPIO_TypeDef *port, uint16_t pin,
  * @brief  Read the 4-position rotary switch and update drive_mode.
  *
  *         S1=PA6, S2=PA7, S3=PB0, S4=PB1  (all active-low with pull-up)
+ * @note   Skipped while inside the DRIVE_MODE_HOLD_MS window after a
+ *         0x310 send, so the knob can settle without triggering a send.
  */
-static void Update_Drive_Mode(void)
+static void Update_Drive_Mode(uint32_t now)
 {
+    if ((int32_t)(now - drive_mode_hold_until_ms) < 0) {
+        return;
+    }
+
     Debounce_Sample(S1_GPIO_Port, S1_Pin, &db_s1);
     Debounce_Sample(S2_GPIO_Port, S2_Pin, &db_s2);
     Debounce_Sample(S3_GPIO_Port, S3_Pin, &db_s3);

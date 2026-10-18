@@ -40,7 +40,7 @@ CAN ID 定义在 `Core/Inc/button_panel.h`。滑移等级和驾驶模式采用�
 
 | ID | 帧名 | DLC | 触发条件 | 载荷 |
 | --- | --- | --- | --- | --- |
-| 0x310 | DriveMode_Request | 8 | 旋钮档位变化 | byte0 = '0'..'3'（48..51，对应模式 S/Q/C/E），档位无效时 0xFF |
+| 0x310 | DriveMode_Request | 8 | 旋钮档位变化（发送后屏蔽 200 ms） | byte0 = '0'..'3'（48..51，对应模式 S/Q/C/E），档位无效时 0xFF |
 | 0x700 | SlipLevel | 1 | 滑移等级变化 | byte0 = 0..7 |
 | 0x701 | RecorderToggle | 1 | KEY1 释放沿 | bit0 = 1 |
 | 0x702 | ErrorClear | 1 | KEY2 释放沿 | bit0 = 1 |
@@ -73,6 +73,7 @@ CAN ID 定义在 `Core/Inc/button_panel.h`。滑移等级和驾驶模式采用�
 - 按键和旋钮采用软件去抖，连续 4 次采样一致才更新状态，响应窗口约 40 ms。
 - 电位器每次扫描转换一次，做 16 点滑动平均，再按 `平均值 × 8 ÷ 4096` 量化为 0～7。
 - 旋钮只认“恰好一档接地”的读数，零档或多档接地判为无效（0xFF）。
+- 发送 0x310 后屏蔽 S1～S4 采样 200 ms，等触点稳定后再重新去抖确认档位；档位变化最快约 240 ms 上报一次。
 - 邮箱满时发送失败静默丢帧，不重试。
 
 ## 目录结构
@@ -81,10 +82,11 @@ CAN ID 定义在 `Core/Inc/button_panel.h`。滑移等级和驾驶模式采用�
 SteeringWheel_Button/
 ├── Core/
 │   ├── Inc/                  # button_panel.h：面板参数与 CAN ID 定义
-│   └── Src/                  # button_panel.c：面板逻辑
+│   ├── Src/                  # button_panel.c：面板逻辑
 │                              # can.c：CAN 收发、过滤与解析
 │                              # ecu_info.c：整车信息汇总
 │                              # 其余为 CubeMX 生成代码和正点原子模板
+│   └── Startup/              # CubeIDE 启动汇编文件
 ├── Drivers/                   # STM32F1 HAL 与 CMSIS
 ├── MDK-ARM/                   # Keil MDK 工程
 ├── cmake/                     # GCC 工具链文件（STM32CubeCLT）
@@ -97,7 +99,7 @@ SteeringWheel_Button/
 └── CHANGELOG.md               # 变更记录与待办
 ```
 
-`main()` 只初始化 GPIO、ADC1、CAN1、TIM1。TIM1 与 usart.c、dma.c、delay.c、sys.c 为模板遗留，当前固件没有使用其功能。
+`main()` 只初始化 GPIO、ADC1、CAN1、TIM1。usart.c、dma.c、delay.c、sys.c 为模板遗留，当前固件没有使用其功能。其中 usart.c 是 interface 工程的 RS485/串口链路代码，两个构建系统都不编译它（CMake 源列表不含，CubeIDE 在 .cproject 中排除）。
 
 ## 构建与烧录
 
@@ -112,11 +114,15 @@ cmake --preset Debug
 cmake --build build/Debug
 ```
 
-产物为 `build/Debug/SteeringWheel_Button.elf`。当前 Debug 构建占用 FLASH 21.9%、RAM 9.2%。
+产物为 `build/Debug/SteeringWheel_Button.elf`。当前 Debug 构建占用 FLASH 22.0%、RAM 9.2%。
 
 ### Keil MDK
 
 打开 `MDK-ARM/SteeringWheel_Button.uvprojx`，直接构建烧录。
+
+### STM32CubeIDE
+
+工程根目录已含 CubeIDE 工程文件（.cproject、.project、Core/Startup/、STM32F103C8TX_FLASH.ld），用 CubeIDE 直接打开根目录即可构建。Core/Src/usart.c 已在 .cproject 的两个配置中排除编译。
 
 ### 修改外设配置
 

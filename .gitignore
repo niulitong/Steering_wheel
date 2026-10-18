@@ -2,6 +2,10 @@
 build/
 mx.scratch
 
+# STM32CubeIDE 构建输出（.cproject/.project 随仓库跟踪）
+Debug/
+Release/
+
 # Keil MDK：窗口布局文件
 *.uvguix.*
 *.scvd
