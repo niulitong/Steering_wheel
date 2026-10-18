@@ -12,8 +12,8 @@
   - KEY1 释放沿发送 0x701 RecorderToggle（bit0=1），KEY2 释放沿发送 0x702 ErrorClear（bit0=1）。
   - 扫描周期 10 ms，去抖窗口约 40 ms，全部为事件驱动发送，上电各强制首发一帧。
 - CAN 接收（`Core/Src/can.c`）：硬件过滤只收 0x401、0x501、0x502、0x503、0x504、0x50，解析结果写入 ECU_INFO；0x50 IMU 原始帧按 SubType 转发为 0x60～0x66。
-- 遗留代码：can.c 的接收解析、ecu_info 汇总结构、usart/dma/delay/sys 模板来自早前的 interface 工程，编译参与但 main 未初始化 USART/DMA。
-- 构建双路径：STM32CubeCLT + CMake/Ninja（Debug/Release 预设）与 Keil MDK 工程。Debug 构建占用 FLASH 22.0%、RAM 9.2%（2026-10-18 实测）。
+- 遗留代码：can.c 的接收解析、ecu_info 汇总结构、usart/dma/delay/sys 模板来自早前的 interface 工程；usart.c（RS485/串口链路）被两个构建系统排除编译，dma/delay/sys 参与编译但未被 main 使用。
+- 构建三路径：STM32CubeCLT + CMake/Ninja（Debug/Release 预设）、STM32CubeIDE 与 Keil MDK 工程。Debug 构建占用 FLASH 22.0%、RAM 9.2%（2026-10-18 实测）。
 
 ## 未发布/待办
 
@@ -22,6 +22,7 @@
 - `can.c` 中 GBK 编码的中文注释在 UTF-8 环境显示为乱码，需重存为 UTF-8。
 - KEY3、KEY4、S5 引脚已在 CubeMX 中配置为输入，固件未使用，接入功能或从 .ioc 移除。
 - `Core/Inc/fsae_telemetry.pb.h` 是编译 stub，接入 nanopb 遥测时需替换为真实生成文件。
+- `usart.c` 为 interface 工程遗留（RS485/串口链路，本板无对应硬件配置），已排除编译；确认无用后可连同 usart.h 中为它保留的 UART 前向声明一并清理。
 - 固件无版本号宏，CAN 上也不发版本帧；建议增加版本标识便于赛场排查。
 
 ## 2026-10-18
@@ -31,3 +32,4 @@
 - 用 ninja 增量构建验证 Debug 配置通过，产物 `build/Debug/SteeringWheel_Button.elf`。
 - 初始化 git 仓库，首次导入 127 个文件并推送到 `origin/main`（https://github.com/niulitong/Steering_wheel）。
 - `button_panel.c/h`：0x310 发送后增加 200 ms 旋钮检测屏蔽窗口（`DRIVE_MODE_HOLD_MS`），抑制触点抖动导致的模式跳变；ninja 构建通过，FLASH 22.0%。
+- CubeIDE 工程纳入仓库（.cproject/.project、Core/Startup/、STM32F103C8TX_FLASH.ld），构建产物 Debug/ 加入 .gitignore；修复 CubeIDE 构建失败：usart.c 在 .cproject 两个配置中排除编译，与 CMake 一致。CubeIDE 1.16.1（GCC 12.3.rel1）全量构建通过，text 14424 B。

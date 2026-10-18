@@ -82,10 +82,11 @@ CAN ID 定义在 `Core/Inc/button_panel.h`。滑移等级和驾驶模式采用�
 SteeringWheel_Button/
 ├── Core/
 │   ├── Inc/                  # button_panel.h：面板参数与 CAN ID 定义
-│   └── Src/                  # button_panel.c：面板逻辑
+│   ├── Src/                  # button_panel.c：面板逻辑
 │                              # can.c：CAN 收发、过滤与解析
 │                              # ecu_info.c：整车信息汇总
 │                              # 其余为 CubeMX 生成代码和正点原子模板
+│   └── Startup/              # CubeIDE 启动汇编文件
 ├── Drivers/                   # STM32F1 HAL 与 CMSIS
 ├── MDK-ARM/                   # Keil MDK 工程
 ├── cmake/                     # GCC 工具链文件（STM32CubeCLT）
@@ -98,7 +99,7 @@ SteeringWheel_Button/
 └── CHANGELOG.md               # 变更记录与待办
 ```
 
-`main()` 只初始化 GPIO、ADC1、CAN1、TIM1。TIM1 与 usart.c、dma.c、delay.c、sys.c 为模板遗留，当前固件没有使用其功能。
+`main()` 只初始化 GPIO、ADC1、CAN1、TIM1。usart.c、dma.c、delay.c、sys.c 为模板遗留，当前固件没有使用其功能。其中 usart.c 是 interface 工程的 RS485/串口链路代码，两个构建系统都不编译它（CMake 源列表不含，CubeIDE 在 .cproject 中排除）。
 
 ## 构建与烧录
 
@@ -118,6 +119,10 @@ cmake --build build/Debug
 ### Keil MDK
 
 打开 `MDK-ARM/SteeringWheel_Button.uvprojx`，直接构建烧录。
+
+### STM32CubeIDE
+
+工程根目录已含 CubeIDE 工程文件（.cproject、.project、Core/Startup/、STM32F103C8TX_FLASH.ld），用 CubeIDE 直接打开根目录即可构建。Core/Src/usart.c 已在 .cproject 的两个配置中排除编译。
 
 ### 修改外设配置
 
