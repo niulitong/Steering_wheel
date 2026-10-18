@@ -7,7 +7,9 @@
  *            - PA6/PA7/PB0/PB1: 4-position rotary switch → drive mode
  *            - PA1 ADC: 0-3.3V → 8-level slip rate with moving-average filter
  *          Slip level is sent on CAN ID 0x700 on change.
- *          Drive mode is sent on CAN ID 0x310 on change.
+ *          Drive mode is sent on CAN ID 0x310 on change; the rotary pins
+ *          are then not sampled for DRIVE_MODE_HOLD_MS so contact bounce
+ *          while the knob settles cannot flap the reported mode.
  */
 #ifndef __BUTTON_PANEL_H__
 #define __BUTTON_PANEL_H__
@@ -47,6 +49,13 @@
 /* ------------------------------------------------------------------------- */
 #define BUTTON_SCAN_PERIOD_MS   10U     /* Scan interval in ms               */
 #define BUTTON_DEBOUNCE_CNT      4U     /* Consecutive stable reads needed   */
+
+/* ------------------------------------------------------------------------- */
+/* Drive mode hold (rotary switch)                                           */
+/*   After 0x310 is sent, S1..S4 are not sampled for this long. Contact      */
+/*   bounce while the knob settles is thereby ignored.                       */
+/* ------------------------------------------------------------------------- */
+#define DRIVE_MODE_HOLD_MS      200U    /* Post-send rotary mute in ms       */
 
 /* ------------------------------------------------------------------------- */
 /* Public API                                                                */

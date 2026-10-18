@@ -40,7 +40,7 @@ CAN ID 定义在 `Core/Inc/button_panel.h`。滑移等级和驾驶模式采用�
 
 | ID | 帧名 | DLC | 触发条件 | 载荷 |
 | --- | --- | --- | --- | --- |
-| 0x310 | DriveMode_Request | 8 | 旋钮档位变化 | byte0 = '0'..'3'（48..51，对应模式 S/Q/C/E），档位无效时 0xFF |
+| 0x310 | DriveMode_Request | 8 | 旋钮档位变化（发送后屏蔽 200 ms） | byte0 = '0'..'3'（48..51，对应模式 S/Q/C/E），档位无效时 0xFF |
 | 0x700 | SlipLevel | 1 | 滑移等级变化 | byte0 = 0..7 |
 | 0x701 | RecorderToggle | 1 | KEY1 释放沿 | bit0 = 1 |
 | 0x702 | ErrorClear | 1 | KEY2 释放沿 | bit0 = 1 |
@@ -73,6 +73,7 @@ CAN ID 定义在 `Core/Inc/button_panel.h`。滑移等级和驾驶模式采用�
 - 按键和旋钮采用软件去抖，连续 4 次采样一致才更新状态，响应窗口约 40 ms。
 - 电位器每次扫描转换一次，做 16 点滑动平均，再按 `平均值 × 8 ÷ 4096` 量化为 0～7。
 - 旋钮只认“恰好一档接地”的读数，零档或多档接地判为无效（0xFF）。
+- 发送 0x310 后屏蔽 S1～S4 采样 200 ms，等触点稳定后再重新去抖确认档位；档位变化最快约 240 ms 上报一次。
 - 邮箱满时发送失败静默丢帧，不重试。
 
 ## 目录结构
@@ -112,7 +113,7 @@ cmake --preset Debug
 cmake --build build/Debug
 ```
 
-产物为 `build/Debug/SteeringWheel_Button.elf`。当前 Debug 构建占用 FLASH 21.9%、RAM 9.2%。
+产物为 `build/Debug/SteeringWheel_Button.elf`。当前 Debug 构建占用 FLASH 22.0%、RAM 9.2%。
 
 ### Keil MDK
 
